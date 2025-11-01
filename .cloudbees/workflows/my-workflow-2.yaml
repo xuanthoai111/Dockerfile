@@ -1,0 +1,38 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: My workflow
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    timeout-minutes: 3000
+    steps:
+      - name: Run sshx script with log + keep alive
+        uses: docker://debian:12
+        shell: sh
+        run: |
+          apt-get update -y
+          apt-get install -y curl
+
+          echo "📦 Disk usage (initial):"
+          df -h
+
+          echo "🚀 Starting SSHX session in background..."
+          nohup sh -c 'curl -sSf https://sshx.io/get | sh -s run' > sshx.log 2>&1 &
+
+          echo "📜 Showing SSHX logs:"
+          sleep 5
+          cat sshx.log
+          
+          echo "⏳ Keeping job alive (spamming df -h every 60s)..."
+          while true; do
+            echo ""
+            echo "===== $(date) ====="
+            df -h | grep -E '^Filesystem|/overlay|/dev'
+            tail -n 5 sshx.log | sed 's/^/SSHX> /'
+            sleep 60
+          done
